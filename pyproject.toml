@@ -1,0 +1,91 @@
+[project]
+name = "samvidhan"
+version = "0.1.0"
+description = "Production-oriented, citation-grounded RAG system for the Constitution of India: retrieval evaluation, failure handling and Article-level source attribution"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.31.0",
+    "fastapi>=0.142.2",
+    "langgraph==1.2.12",
+    "limits>=5.8.0",
+    "litellm==1.103.1",
+    "pgvector>=0.5.0",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "pymupdf>=1.28.2",
+    "sentence-transformers>=6.1.0",
+    "sqlalchemy[asyncio]>=2.1.1",
+    "structlog>=26.1.0",
+    "uuid-utils>=0.17.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/samvidhan"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "."]  # "." makes eval/ and tests/ first-party for isort
+# Docs and reports are hand-formatted; ruff would otherwise reformat code blocks inside Markdown.
+extend-exclude = ["**/*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+"migrations/**" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src"]
+# PyMuPDF ships partial annotations; calls into its untyped parts are allowed.
+untyped_calls_exclude = ["pymupdf"]
+
+[[tool.mypy.overrides]]
+module = ["pgvector.*", "pymupdf.*", "sentence_transformers.*", "transformers.*", "torch.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers"
+markers = [
+  "unit: fast, no network, no DB",
+  "integration: needs Docker (testcontainers Postgres)",
+  "e2e: full stack",
+  "slow: long-running",
+  "llm: hits a real LLM (excluded in CI)",
+]
+filterwarnings = [
+  "error::DeprecationWarning:samvidhan.*",
+  # PyMuPDF's SWIG bindings warn on import (pymupdf issue, not ours).
+  "ignore:builtin type Swig:DeprecationWarning",
+  "ignore:builtin type swigvarlink:DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/samvidhan"]
+branch = true
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.9",
+    "testcontainers[postgres]>=4.15.0",
+]

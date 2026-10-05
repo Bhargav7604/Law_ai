@@ -1,0 +1,48 @@
+# Samvidhan local stack (HLD §18, spec: foundation §3.1).
+# Project name is pinned so containers/volumes never collide with other local compose projects.
+# DB host port defaults to 5433 because 5432 is often used by another project's Postgres.
+# Credentials come from the gitignored .env (POSTGRES_*); never hard-code them here.
+name: samvidhan
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-samvidhan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-samvidhan}
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5433}:5432"   # localhost only, not the LAN
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    profiles: ["app"]           # `docker compose --profile app up`; `make up` starts only the db
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-samvidhan}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-samvidhan}
+      LOG_FORMAT: json
+      HF_HOME: /models/hf
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/models/hf
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # The web UI is served by the api service at / (ADR-0013); no separate ui service.
+
+volumes:
+  pgdata:
+  hf_cache:
