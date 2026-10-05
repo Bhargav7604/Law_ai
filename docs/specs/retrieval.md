@@ -73,7 +73,9 @@ Query embedded with the same `Embedder` used at ingestion (`ingestion/embed.py`,
 — bge-m3 does not use one), off the event loop via `asyncio.to_thread`. SQL orders by `embedding <=> :q`
 (cosine distance, HNSW `vector_cosine_ops`); score = `1 - distance`. The query filters on the active `document_id` and sets
 `hnsw.iterative_scan = strict_order` (pgvector ≥ 0.8) for its transaction: HNSW filters after the index scan, so
-once an inactive document shares the index a plain scan could return fewer than `DENSE_K` active rows.
+once an inactive document shares the index a plain scan could return fewer than `DENSE_K` active rows. On an older
+pgvector (e.g. a distro package) the setting is skipped and `iterative_scan_skipped` is logged: those versions
+reserve the `hnsw.` prefix and reject it, which would otherwise fail every chat.
 
 ### 3.4 Lexical leg
 

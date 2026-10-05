@@ -8,7 +8,16 @@ from sqlalchemy import text
 
 # HNSW filters after the index scan; once inactive documents share the index, a plain scan can
 # return fewer than k active rows. Iterative scan (pgvector ≥ 0.8) keeps searching until k match.
-ITERATIVE_SCAN = text("SET LOCAL hnsw.iterative_scan = strict_order")
+# Older pgvector reserves the `hnsw.` prefix and rejects the setting, which failed every chat, so
+# it is set (transaction-scoped) only when the extension supports it; no row back means skipped.
+ITERATIVE_SCAN = text(
+    """
+    SELECT set_config('hnsw.iterative_scan', 'strict_order', true)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_extension WHERE extname = 'vector' AND extversion ~ '^0\\.[0-7]\\.'
+    )
+    """
+)
 
 DENSE = text(
     """

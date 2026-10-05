@@ -4,8 +4,11 @@ from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from samvidhan.core.logging import get_logger
 from samvidhan.retrieval import sql
 from samvidhan.retrieval.types import ScoredChunk, chunk_from_row
+
+log = get_logger(__name__)
 
 
 def vector_literal(vector: Sequence[float]) -> str:
@@ -16,7 +19,8 @@ def vector_literal(vector: Sequence[float]) -> str:
 async def dense_search(
     session: AsyncSession, query_vec: Sequence[float], k: int
 ) -> list[ScoredChunk]:
-    await session.execute(sql.ITERATIVE_SCAN)  # transaction-scoped; see sql.py
+    if (await session.execute(sql.ITERATIVE_SCAN)).first() is None:  # see sql.py
+        log.warning("iterative_scan_skipped", reason="pgvector < 0.8")
     result = await session.execute(sql.DENSE, {"query_vec": vector_literal(query_vec), "k": k})
     return [
         chunk_from_row(row).with_stage("dense", rank, float(row.score))

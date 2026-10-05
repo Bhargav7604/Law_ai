@@ -6,7 +6,7 @@
 evaluation, failure handling, and Article-level source attribution.**
 
 ![Phase](https://img.shields.io/badge/phase-6%20web%20UI%20built-f9c513)
-![Tests](https://img.shields.io/badge/tests-357%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-359%20passing-2ea44f)
 ![Recall@5](https://img.shields.io/badge/Recall%405%20(dev)-0.93-2ea44f)
 ![Articles](https://img.shields.io/badge/articles-506%2F506-blue)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
@@ -323,6 +323,8 @@ Open **http://localhost:8000** and ask *"What does Article 21 say?"* 🎉
 <summary>Something not working?</summary>
 
 - **Database won't start** → make sure Docker Desktop is open. If port 5433 is busy, change `DB_HOST_PORT` in `.env`.
+- **Using your own Postgres instead of Docker?** → install pgvector ≥ 0.8. Older versions (e.g. Ubuntu's package) work,
+  but log `iterative_scan_skipped` and can return fewer search hits after a re-ingest.
 - **No answer / API error** → check `GROQ_API_KEY` in `.env`.
 - **Want to try without an API key?** → `make ask Q="What does Article 21 say?" ARGS=--fake-llm`
 - **Done for the day?** → `make down` stops the database (your data stays).

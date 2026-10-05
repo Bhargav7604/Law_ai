@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
@@ -131,6 +132,34 @@ def test_dense_ranks_exact_text_first_and_ignores_inactive(database_url: str) ->
     assert hits[0].score == pytest.approx(1.0, abs=1e-4)
     assert len(hits) == len(CORPUS)
     assert not any(h.text.startswith("OLD") for h in hits)
+
+
+@pytest.mark.parametrize("pretend_version", [None, "0.6.0"])
+def test_iterative_scan_only_where_pgvector_supports_it(
+    database_url: str, pretend_version: str | None
+) -> None:
+    """pgvector < 0.8 rejects `hnsw.iterative_scan`; dense search must skip it, not fail."""
+    query = EMBEDDER.embed([CORPUS[2][4]])[0]
+    version = "SELECT extversion FROM pg_extension WHERE extname = 'vector'"
+
+    async def work(session: AsyncSession) -> Any:
+        if pretend_version:  # rolled back with the session's transaction
+            await session.execute(
+                text("UPDATE pg_extension SET extversion = :v WHERE extname = 'vector'"),
+                {"v": pretend_version},
+            )
+        hits = await dense_search(session, query, k=10)
+        setting = text("SELECT current_setting('hnsw.iterative_scan', true)")  # NULL before 0.8
+        return (
+            hits,
+            (await session.execute(text(version))).scalar_one(),
+            (await session.execute(setting)).scalar_one(),
+        )
+
+    hits, extversion, setting = _with_session(database_url, work)
+    assert hits[0].id == "art-21#0"
+    supported = tuple(int(part) for part in extversion.split(".")[:2]) >= (0, 8)
+    assert (setting == "strict_order") is supported
 
 
 def test_lexical_uses_or_semantics(database_url: str) -> None:
